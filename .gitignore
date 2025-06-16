@@ -1,0 +1,25 @@
+# Ignore folders
+data/
+clips/
+deep-head-pose/
+FAU_CVPR2021/
+first-order-model/
+id-reveal/
+LIA/
+ME-GraphAU/
+old/
+output/
+output_vox/
+poi-forensics/
+roop/
+videoutils-main/
+arc_behav.py
+cut_vid.py
+cut_vid.sh
+preprocess_video.py
+LIA_encoder/checkpoints/vox.pt
+*.pt
+
+# Ignore specific files
+*.mp4
+*.avi
