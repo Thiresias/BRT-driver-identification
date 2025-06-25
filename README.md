@@ -20,10 +20,64 @@ Repository of the paper: "Who is driving this deepfake? Beyond Deepfake Detectio
 ## Installation
 
 ### Python environment
-- **TO DO**: Add requirment.txt
+- **TO DO**: Add requirements.txt
 
-### Dataset formatting
-- **TO DO**: Add explanation on dataset format
+### Data preprocessin
+To train your own model, process your data with the follosing steps:
+  1. Dataset formatting
+After gathering videos from a specific Person Of Interest (POI), you can split them in two subsets: Training subset (80%) and testing subset (20%)
+The counter examples used for training are the real videos (compression rate of c23) from [FaceForensics++](https://github.com/ondyari/FaceForensics). For the testing, we use the real videos of the celbrities from [Celeb-DF-v2](https://github.com/yuezunli/celeb-deepfakeforensics).
+
+The videos must be split in the following format:
+```
+data
+|-- POI
+    |-- train
+        |-- vid01.mp4
+        |-- vid02.mp4
+        |-- ...
+    |-- test
+        |-- vid81.mp4
+        |-- vid82.mp4
+        |-- ...
+|-- other
+    |-- train # List of FF++ real videos (c23)
+        |-- 000.mp4
+        |-- 001.mp4
+        |-- ...
+    |-- test # List of the CDFv2 real videos (celeb-real)
+        |-- id0_0000_id1_0000.mp4
+        |-- id0_0001_id2_0000.mp4
+        |-- ...
+
+```
+
+This will allow you to train your network at learning the facial behavior of your POI
+
+Next, for the driver identification step, gather a collection of deepfakes you want to test. The role of BRT, is to determine which deepfakes were generated using a video of your POI as a driving video.
+The current script is made for performance evaluation, so you are supposed to know which deepfake were generated using a video of your POI.
+Therefore, drop your videos in the following format:
+
+```
+data
+|-- POI
+|-- other
+|-- deepfakes-from-POI
+    |-- train
+        |-- dummy_video.mp4 # In order to avoid error, put a random video here. (TO BE FIXED IN A LATER VERSION)
+    |-- test
+        |-- df01POI.mp4
+        |-- df02POI.mp4
+        |-- ...
+|-- deepfake-from-other
+    |-- train
+        |-- dummy_video.mp4 # Can be the same as the one from data/deepfakes-from-POI/train
+    |-- test
+        |-- df01_otherA.mp4
+        |-- df02_otherB.mp4
+        |-- ...
+```
+  3. Pre-processing script
 
 <!-- omit in toc -->
 ## Scripts
