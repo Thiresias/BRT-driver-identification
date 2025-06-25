@@ -1,5 +1,5 @@
 <!-- omit in toc -->
-# BRT-driver-identitfication
+# BRT-driver-identification
 Repository of the paper: "Who is driving this deepfake? Beyond Deepfake Detection With Driver Identification"
 
 ![alt text](assets/driver_identification.jpg)
