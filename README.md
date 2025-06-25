@@ -24,10 +24,14 @@ Repository of the paper: "Who is driving this deepfake? Beyond Deepfake Detectio
 
 ### Data preprocessin
 To train your own model, process your data with the follosing steps:
-  1. Dataset formatting
+  1. Dataset
 After gathering videos from a specific Person Of Interest (POI), you can split them in two subsets: Training subset (80%) and testing subset (20%)
 The counter examples used for training are the real videos (compression rate of c23) from [FaceForensics++](https://github.com/ondyari/FaceForensics). For the testing, we use the real videos of the celbrities from [Celeb-DF-v2](https://github.com/yuezunli/celeb-deepfakeforensics).
 
+  3. Preprocessing
+Before formatting all the videos, you need to crop the videos using the preprocessing script `crop_video.py` from [FOMM](https://github.com/AliaksandrSiarohin/first-order-model).
+
+  4. Formatting
 The videos must be split in the following format:
 ```
 data
@@ -77,16 +81,23 @@ data
         |-- df02_otherB.mp4
         |-- ...
 ```
-  3. Pre-processing script
 
 <!-- omit in toc -->
 ## Scripts
 
 ### Training
-- **TO DO**: Add detail about how to train the model for 1 person.
+The training works for a single GPU, parallel training have not been tested.
+To train the model simply run:
+```
+export CUDA_VISIBLE_DEVICES=0
+python head_mvt_classification_LIA.py --data_pos data/POI --data_neg data/other --epochs 101 --name POI --training
+```
 
-### Testing
-- **TO DO**: Add detail about how to test a trained model.
+### Driver identification (Testing)
+```
+export CUDA_VISIBLE_DEVICES=0
+python head_mvt_classification_LIA.py --data_pos data/deepfakes-from-POI --data_neg data/deepfakes-from-other --epochs 101 --name POI
+```
 
 <!-- omit in toc -->
 ## Citation
