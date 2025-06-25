@@ -70,8 +70,8 @@ data
     |-- train
         |-- dummy_video.mp4 # In order to avoid error, put a random video here. (TO BE FIXED IN A LATER VERSION)
     |-- test
-        |-- df01POI.mp4
-        |-- df02POI.mp4
+        |-- dfpoi01_POI.mp4
+        |-- dfpoi02_POI.mp4
         |-- ...
 |-- deepfake-from-other
     |-- train
