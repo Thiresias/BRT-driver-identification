@@ -20,7 +20,8 @@ from utils.display import display_batch_lia
 
 
 # from dataloader.headpose import VideoFramesDataset, MvtAnalysis
-from LIA_encoder.dataset import Belkacem_CLS_lia_balanced, Belkacem_CLS_vid
+from LIA_encoder.metadata import load_metadata
+from LIA_encoder.metadata_dataset import ManifestVideoDataset
 from utils.metrics import compute_video_level_AUC, calculate_fnr_fpr
 
 from torch.utils.tensorboard import SummaryWriter
@@ -162,16 +163,19 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--training", default=False, help="Set training mode", action="store_true")
     parser.add_argument("--ckpt", default="", help="add ckpt path (optional)")
-    parser.add_argument("--data_pos", default="../Deep3DFaceRecon_pytorch/checkpoints/face_model/results/epoch_20_000000/", help="Root path of extracted face frames")
-    parser.add_argument("--data_neg", help="Root path of extracted face frames")
+    parser.add_argument("--metadata", nargs="+", required=True, help="CSV or JSON manifest(s)")
+    parser.add_argument("--poi", required=True, help="Exact driver_id of the person to recognize")
+    parser.add_argument("--eval_split", choices=["validation", "test"], default=None,
+                        help="Default: validation during training, test otherwise")
     parser.add_argument("--epochs", default=101, type=int, help="Number of epochs for training")
     parser.add_argument("--name", help="Name of the training")
     parser.add_argument("--train_mode", default='supervised', help="supervised or self-supervised")
     args = parser.parse_args()
     training = args.training
     ckpt = args.ckpt
-    data_pos = args.data_pos
-    data_neg = args.data_neg
+    eval_split = args.eval_split or ('validation' if training else 'test')
+    if not training and not ckpt:
+        parser.error("--ckpt is required for evaluation")
 
     ds = 'cls_LIA'
     name = args.name
@@ -182,15 +186,17 @@ if __name__=="__main__":
     if (train_mode != 'supervised') and (train_mode != 'self-supervised'):
         raise NameError("Wrong input for for train_mode. Should be 'supervised' or 'self-supervised'.")
     
-    # Load data
-    print("Load data")
-    # data_root_HP = os.path.join(data_root_AU, '../../deep-head-pose/output')
-    video_Dataset = Belkacem_CLS_vid(data_pos, data_neg, seq_length=8, train=True, obama=True)
-    video_Dataset_test = Belkacem_CLS_vid(data_pos, data_neg, seq_length=8, train=False, obama=True)
+    # Validate the complete metadata set before selecting splits or loading the model.
+    print("Load metadata")
+    try:
+        records = load_metadata(args.metadata)
+        video_Dataset_test = ManifestVideoDataset(records, args.poi, split=eval_split)
+        video_Dataset = ManifestVideoDataset(records, args.poi, split='train') if training else None
+    except (ValueError, OSError) as exc:
+        parser.error(str(exc))
     batch_size = 4
-    loader = DataLoader(video_Dataset, batch_size=batch_size, shuffle=True, num_workers=16)
-    loader_test = DataLoader(video_Dataset_test, batch_size=batch_size, shuffle=True, num_workers=16)
-
+    loader = DataLoader(video_Dataset, batch_size=batch_size, shuffle=True, num_workers=16) if training else None
+    loader_test = DataLoader(video_Dataset_test, batch_size=batch_size, shuffle=False, num_workers=16)
 
     # Load model
     print("Load model")
@@ -229,6 +235,10 @@ if __name__=="__main__":
 
         # Write spec
         write_spec(name, model, lr, optimizer, ds, batch_size)
+        with open(os.path.join(output_folder, 'metadata.json'), 'w') as handle:
+            json.dump([dict(record.__dict__, path=str(record.path)) for record in records], handle, indent=2)
+        with open(os.path.join(output_folder, 'data_config.json'), 'w') as handle:
+            json.dump({'poi': args.poi, 'eval_split': eval_split, 'metadata': args.metadata}, handle, indent=2)
 
         for epoch in pbar1:
             if ckpt:
