@@ -1,0 +1,10 @@
+clip_id,path,kind,driver_id,appearance_id,driver_video_id,split,start_sec,end_sec,source_asset_id,method
+trump-151-part1-11.40-29.76,../data/trump/151_part_1 [11.40 - 29.76].mp4,genuine,trump,trump,trump:151,train,11.40,29.76,,
+trump-151-part1-57.38-75.70,../data/trump/151_part_1 [57.38 - 75.70].mp4,genuine,trump,trump,trump:151,train,57.38,75.70,,
+cdf-id0-train-0001,../data/cdf/id0_0001.mp4,genuine,cdf:id0,cdf:id0,cdf:id0:0001,train,0,12,,
+trump-val-160,../data/trump/160_part_1 [3.60 - 36.12].mp4,genuine,trump,trump,trump:160,validation,3.60,36.12,,
+cdf-id1-val-0001,../data/cdf/id1_0001.mp4,genuine,cdf:id1,cdf:id1,cdf:id1:0001,validation,0,12,,
+trump-drives-obama,../data/drivingTrump_sourceObama/fake01.mp4,generated,trump,obama,trump:heldout-200,test,0,12,obama:portrait-01,example-method
+trump-drives-belka,../data/drivingTrump_sourceBelkacem/fake02.mp4,generated,trump,belkacem,trump:heldout-200,test,0,12,belkacem:portrait-01,example-method
+cdf-drives-obama,../data/drivingCDF_sourceObama/fake03.mp4,generated,cdf:id2,obama,cdf:id2:heldout-0001,test,0,12,obama:portrait-01,example-method
+obama-drives-trump,../data/drivingObama_sourceTrump/fake04.mp4,generated,obama,trump,obama:heldout-300,test,0,12,trump:portrait-01,example-method
