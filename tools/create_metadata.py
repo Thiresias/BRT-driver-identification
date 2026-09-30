@@ -69,7 +69,7 @@ def scan_folder(folder, poi, world, output, val_fraction=None, seed=0):
         # Filenames of generated assets cannot establish their original driver recording.
         recording_id = (role + '/' + (within.parent / recording).as_posix()) if kind == 'genuine' else ''
         clip_key = role + '/' + relative.as_posix()
-        row = dict(clip_id=role + ':' + hashlib.sha256(clip_key.encode()).hexdigest(),
+        row = dict(clip_id=clip_key,
                    path=os.path.relpath(path, output.parent), kind=kind,
                    driver_scope='non_poi' if world else 'named',
                    driver_id='' if world else poi, poi_id=poi if world else '',
@@ -94,6 +94,29 @@ def scan_folder(folder, poi, world, output, val_fraction=None, seed=0):
     return rows
 
 
+def assign_short_ids(rows):
+    """Allocate five-hex IDs deterministically, resolving collisions within this CSV."""
+    capacity = 16 ** 5
+    if len(rows) > capacity:
+        raise ValueError(f'five-digit clip IDs support at most {capacity} videos per CSV')
+    used = set()
+    for row in sorted(rows, key=lambda item: item['clip_id']):
+        candidate = int(hashlib.sha256(row['clip_id'].encode()).hexdigest()[:5], 16)
+        while candidate in used:
+            candidate = (candidate + 1) % capacity
+        used.add(candidate)
+        row['clip_id'] = f'{candidate:05x}'
+
+
+def output_path(output, poi_dir, world_dir):
+    if output is None:
+        folder = poi_dir or world_dir
+        if folder is None:
+            raise ValueError('provide --poi-dir and/or --world-dir')
+        output = Path(folder) / 'metadata.csv'
+    return Path(output).expanduser().resolve()
+
+
 def create_metadata(output, poi, poi_dir=None, world_dir=None, val_fraction=None, seed=0, force=False):
     if not poi.strip() or poi.strip() != poi or poi.lower() == 'world':
         raise ValueError('--poi must name the actual POI, not world, with no surrounding whitespace')
@@ -103,7 +126,7 @@ def create_metadata(output, poi, poi_dir=None, world_dir=None, val_fraction=None
         a, b = Path(poi_dir).resolve(), Path(world_dir).resolve()
         if a == b or a in b.parents or b in a.parents:
             raise ValueError('POI and world input directories must not overlap')
-    output = Path(output).expanduser().resolve()
+    output = output_path(output, poi_dir, world_dir)
     if output.suffix.lower() != '.csv':
         raise ValueError('--output must end in .csv')
     if output.exists() and not force:
@@ -112,6 +135,7 @@ def create_metadata(output, poi, poi_dir=None, world_dir=None, val_fraction=None
     for folder, world in [(poi_dir, False), (world_dir, True)]:
         if folder:
             rows.extend(scan_folder(folder, poi, world, output, val_fraction, seed))
+    assign_short_ids(rows)
     output.parent.mkdir(parents=True, exist_ok=True)
     # Validate before publishing; failed validation leaves an existing output intact.
     temp_path = None
@@ -140,7 +164,7 @@ def main():
     parser.add_argument('--poi-dir', type=Path, help='POI folder (alternative to --root)')
     parser.add_argument('--world-dir', type=Path, help='Known non-POI folder (alternative to --root)')
     parser.add_argument('--poi', required=True, help='Actual person of interest; world is not an identity')
-    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--output', type=Path, help='Default: metadata.csv inside the POI folder (world folder for world-only input)')
     parser.add_argument('--val-fraction', type=float, help='Explicitly split unsplit genuine recordings')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--force', action='store_true', help='Replace an existing CSV after validation')
@@ -151,6 +175,7 @@ def main():
         args.poi_dir = args.root / args.poi
         args.world_dir = args.root / 'world' if (args.root / 'world').is_dir() else None
     try:
+        args.output = output_path(args.output, args.poi_dir, args.world_dir)
         rows = create_metadata(args.output, args.poi, args.poi_dir, args.world_dir,
                                args.val_fraction, args.seed, args.force)
     except (OSError, ValueError) as exc:

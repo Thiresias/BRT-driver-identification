@@ -77,7 +77,7 @@ From the repository root, for a dataset containing `data/trump/` and optionally
 `data/world/`, run:
 
 ```bash
-python -m tools.create_metadata --root data --poi trump --output metadata.csv
+python -m tools.create_metadata --root data --poi trump
 ```
 
 The CSV generator and shared schema/validation code live in `tools/`:
@@ -88,8 +88,8 @@ You can also run both scripts directly from inside `tools/`:
 
 ```bash
 cd tools
-python create_metadata.py --root ../data --poi trump --output ../metadata.csv
-python metadata.py --metadata ../metadata.csv --poi trump
+python create_metadata.py --root ../data --poi trump
+python metadata.py --metadata ../data/trump/metadata.csv --poi trump
 ```
 
 Command-line paths are relative to your current working directory. Video paths
@@ -136,8 +136,12 @@ included in recording IDs, keeping `person_a/001.mp4` separate from
 `person_b/001.mp4` in `world`. Train/val folder names are excluded from recording
 IDs, so accidental cross-split recordings can be detected. Verify this naming
 convention fits your data; the generator cannot detect unrelated recordings
-with indistinguishable filenames. Clip IDs are deterministic hashes of role
-and relative path, including the complete filename and timestamps.
+with indistinguishable filenames. Clip IDs are five lowercase hexadecimal characters (`00000` to `fffff`),
+with capacity for 1,048,576 clips per CSV. They derive from role and relative
+path; collisions are resolved deterministically within the generated CSV.
+Regenerating the same collection gives the same IDs. Adding/removing clips can
+change IDs involved in collisions. Generate POI and world together when possible:
+separately generated CSVs may have colliding IDs, which the loader rejects.
 
 Generated assets retain a blank `driver_video_id` and `appearance_id` rather
 than inferring them from the generated filename. Recognized timestamp suffixes
@@ -150,7 +154,7 @@ If genuine clips are **not already split**, explicitly request a validation
 fraction:
 
 ```bash
-python -m tools.create_metadata --root data --poi trump --output metadata.csv --val-fraction 0.2 --seed 42
+python -m tools.create_metadata --root data --poi trump --val-fraction 0.2 --seed 42
 ```
 
 Place unsplit genuine clips directly inside each population folder (nested
@@ -162,6 +166,13 @@ fraction is approximate for small datasets, and at least one recording remains
 in each split. Do not combine `--val-fraction` with existing train/val folders.
 Without this option, videos outside named splits are rejected, not silently
 assigned. For differing layouts, generate separate manifests in separate calls.
+
+By default, the CSV is written inside the POI folder as `metadata.csv`, including
+when world videos are supplied: `--root data --poi trump` writes
+`data/trump/metadata.csv`. World-only generation writes `metadata.csv` inside
+the world input folder. `--output` remains available to choose another path.
+Media paths are computed relative to the actual CSV location, including world
+videos outside the POI folder.
 
 Existing CSVs are protected unless you pass `--force`. The output is validated
 before replacement. The generator needs only the Python standard library and

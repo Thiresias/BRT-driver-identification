@@ -5,10 +5,11 @@ import sys
 import tempfile
 import unittest
 import warnings
+from unittest.mock import patch
 from pathlib import Path
 
 from tools.metadata import group_records, load_metadata
-from tools.create_metadata import create_metadata, filename_metadata
+from tools.create_metadata import create_metadata, filename_metadata, assign_short_ids
 
 
 class GeneratorTests(unittest.TestCase):
@@ -171,6 +172,41 @@ class GeneratorTests(unittest.TestCase):
                 for split in ('train', 'validation', 'test'):
                     self.assertEqual(summary[split]['positive_groups'], 1)
                     self.assertEqual(summary[split]['negative_groups'], 1)
+
+    def test_short_ids_are_unique_and_repeatable(self):
+        self.layout()
+        options = dict(poi_dir=self.root / 'trump', world_dir=self.root / 'world')
+        rows = self.generate(**options)
+        ids = [row['clip_id'] for row in rows]
+        self.assertTrue(all(len(value) == 5 and all(c in '0123456789abcdef' for c in value) for value in ids))
+        self.assertEqual(len(set(ids)), len(rows))
+        self.assertEqual(ids, [row['clip_id'] for row in self.generate(**options, force=True)])
+
+    def test_short_id_collisions_wrap_without_duplicates(self):
+        rows = [dict(clip_id='b'), dict(clip_id='a'), dict(clip_id='c')]
+        with patch('tools.create_metadata.hashlib.sha256') as digest:
+            digest.return_value.hexdigest.return_value = 'fffff' + '0' * 59
+            assign_short_ids(rows)
+        self.assertEqual([row['clip_id'] for row in rows], ['00000', 'fffff', '00001'])
+
+    def test_default_output_in_poi_folder_and_relative_media_paths(self):
+        self.layout()
+        repository = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [sys.executable, '-m', 'tools.create_metadata', '--root', str(self.root), '--poi', 'trump'],
+            cwd=repository, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = self.root / 'trump' / 'metadata.csv'
+        self.assertTrue(output.is_file())
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            records = load_metadata(output)
+        self.assertTrue(all(record.path.is_file() for record in records))
+        self.assertEqual(len(records), 6)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            create_metadata(None, 'trump', world_dir=self.root / 'world')
+        self.assertTrue((self.root / 'world' / 'metadata.csv').is_file())
 
     def test_partial_scope_and_unknown_recording_validation(self):
         rows = [dict(clip_id='a', path='a.mp4', kind='generated', split='test',

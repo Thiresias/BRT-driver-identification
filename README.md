@@ -38,8 +38,11 @@ Create a manifest automatically from `<root>/<poi>/{train,val,test}` and optiona
 `<root>/world/{train,val,test}` folders:
 
 ```bash
-python -m tools.create_metadata --root data --poi trump --output metadata.csv
+python -m tools.create_metadata --root data --poi trump
 ```
+
+The CSV is saved to `data/trump/metadata.csv` by default. Clip IDs have five
+hexadecimal characters, with collisions resolved within the generated CSV.
 
 Train/val folders contain genuine clips; test folders contain generated videos
 with the corresponding drivers. Missing timestamps remain blank (NaN in pandas).
@@ -55,7 +58,7 @@ evaluation uses `test` and requires no training videos.
 Check your metadata before loading videos or model weights:
 
 ```bash
-python -m tools.metadata --metadata metadata.csv --poi trump
+python -m tools.metadata --metadata data/trump/metadata.csv --poi trump
 ```
 
 The frozen LIA backbone requires `LIA_encoder/checkpoints/vox.pt`; see the
@@ -72,7 +75,7 @@ Use your actual POI identity and manifest paths in the following commands.
 
 ```bash
 export CUDA_VISIBLE_DEVICES=0
-python head_mvt_classification_LIA.py --metadata metadata.csv --poi trump --epochs 101 --name trump --training
+python head_mvt_classification_LIA.py --metadata data/trump/metadata.csv --poi trump --epochs 101 --name trump --training
 ```
 
 You can supply several manifests: `--metadata genuine.csv generated.json`.
@@ -84,7 +87,7 @@ manifest, not the current working directory.
 
 ```bash
 export CUDA_VISIBLE_DEVICES=0
-python head_mvt_classification_LIA.py --metadata metadata.csv --poi trump --name trump-test --ckpt output/trump/ckpt/latest.pth
+python head_mvt_classification_LIA.py --metadata data/trump/metadata.csv --poi trump --name trump-test --ckpt output/trump/ckpt/latest.pth
 ```
 
 `--ckpt` is required for testing. `--eval_split validation` selects validation
