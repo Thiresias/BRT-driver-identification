@@ -136,7 +136,9 @@ included in recording IDs, keeping `person_a/001.mp4` separate from
 `person_b/001.mp4` in `world`. Train/val folder names are excluded from recording
 IDs, so accidental cross-split recordings can be detected. Verify this naming
 convention fits your data; the generator cannot detect unrelated recordings
-with indistinguishable filenames. Clip IDs are five lowercase hexadecimal characters (`00000` to `fffff`),
+with indistinguishable filenames. Clip IDs contain the POI name (or `world`) followed by a colon and five lowercase
+hexadecimal characters, e.g. `trump:1d54a` or `world:a80f2`. The suffix ranges from
+`00000` to `fffff`,
 with capacity for 1,048,576 clips per CSV. They derive from role and relative
 path; collisions are resolved deterministically within the generated CSV.
 Regenerating the same collection gives the same IDs. Adding/removing clips can

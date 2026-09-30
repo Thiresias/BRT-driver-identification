@@ -178,16 +178,19 @@ class GeneratorTests(unittest.TestCase):
         options = dict(poi_dir=self.root / 'trump', world_dir=self.root / 'world')
         rows = self.generate(**options)
         ids = [row['clip_id'] for row in rows]
-        self.assertTrue(all(len(value) == 5 and all(c in '0123456789abcdef' for c in value) for value in ids))
+        for row in rows:
+            prefix, suffix = row['clip_id'].rsplit(':', 1)
+            self.assertEqual(prefix, 'world' if row['driver_scope'] == 'non_poi' else 'trump')
+            self.assertRegex(suffix, r'^[0-9a-f]{5}$')
         self.assertEqual(len(set(ids)), len(rows))
         self.assertEqual(ids, [row['clip_id'] for row in self.generate(**options, force=True)])
 
     def test_short_id_collisions_wrap_without_duplicates(self):
-        rows = [dict(clip_id='b'), dict(clip_id='a'), dict(clip_id='c')]
+        rows = [dict(clip_id=key, driver_scope='named', driver_id='trump') for key in ['b', 'a', 'c']]
         with patch('tools.create_metadata.hashlib.sha256') as digest:
             digest.return_value.hexdigest.return_value = 'fffff' + '0' * 59
             assign_short_ids(rows)
-        self.assertEqual([row['clip_id'] for row in rows], ['00000', 'fffff', '00001'])
+        self.assertEqual([row['clip_id'] for row in rows], ['trump:00000', 'trump:fffff', 'trump:00001'])
 
     def test_default_output_in_poi_folder_and_relative_media_paths(self):
         self.layout()

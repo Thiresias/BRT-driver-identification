@@ -95,7 +95,7 @@ def scan_folder(folder, poi, world, output, val_fraction=None, seed=0):
 
 
 def assign_short_ids(rows):
-    """Allocate five-hex IDs deterministically, resolving collisions within this CSV."""
+    """Allocate role-prefixed five-hex IDs, resolving collisions within this CSV."""
     capacity = 16 ** 5
     if len(rows) > capacity:
         raise ValueError(f'five-digit clip IDs support at most {capacity} videos per CSV')
@@ -105,7 +105,8 @@ def assign_short_ids(rows):
         while candidate in used:
             candidate = (candidate + 1) % capacity
         used.add(candidate)
-        row['clip_id'] = f'{candidate:05x}'
+        prefix = 'world' if row['driver_scope'] == 'non_poi' else row['driver_id']
+        row['clip_id'] = f'{prefix}:{candidate:05x}'
 
 
 def output_path(output, poi_dir, world_dir):

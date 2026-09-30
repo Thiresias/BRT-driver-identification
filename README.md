@@ -41,8 +41,8 @@ Create a manifest automatically from `<root>/<poi>/{train,val,test}` and optiona
 python -m tools.create_metadata --root data --poi trump
 ```
 
-The CSV is saved to `data/trump/metadata.csv` by default. Clip IDs have five
-hexadecimal characters, with collisions resolved within the generated CSV.
+The CSV is saved to `data/trump/metadata.csv` by default. Clip IDs include the population prefix and five hexadecimal characters, such as
+`trump:1d54a` or `world:1d54a`, with collisions resolved within the generated CSV.
 
 Train/val folders contain genuine clips; test folders contain generated videos
 with the corresponding drivers. Missing timestamps remain blank (NaN in pandas).
