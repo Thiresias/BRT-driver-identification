@@ -55,7 +55,7 @@ evaluation uses `test` and requires no training videos.
 Check your metadata before loading videos or model weights:
 
 ```bash
-python -m LIA_encoder.metadata --metadata metadata.csv --poi trump
+python -m tools.metadata --metadata metadata.csv --poi trump
 ```
 
 The frozen LIA backbone requires `LIA_encoder/checkpoints/vox.pt`; see the

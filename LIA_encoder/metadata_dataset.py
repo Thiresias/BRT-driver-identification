@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from .metadata import group_records
+from tools.metadata import group_records
 
 
 class ManifestVideoDataset(Dataset):

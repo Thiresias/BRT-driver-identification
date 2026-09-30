@@ -20,7 +20,7 @@ from utils.display import display_batch_lia
 
 
 # from dataloader.headpose import VideoFramesDataset, MvtAnalysis
-from LIA_encoder.metadata import load_metadata
+from tools.metadata import load_metadata
 from LIA_encoder.metadata_dataset import ManifestVideoDataset
 from utils.metrics import compute_video_level_AUC, calculate_fnr_fpr
 

@@ -7,7 +7,7 @@ import unittest
 import warnings
 from pathlib import Path
 
-from LIA_encoder.metadata import group_records, load_metadata
+from tools.metadata import group_records, load_metadata
 from tools.create_metadata import create_metadata, filename_metadata
 
 
@@ -147,6 +147,30 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Wrote 6 videos', result.stdout)
         self.assertIn('recording-overlap checks are incomplete', result.stderr)
+
+    def test_cli_from_repository_and_tools_directory(self):
+        self.layout()
+        repository = Path(__file__).resolve().parents[1]
+        invocations = [
+            (repository, ['-m', 'tools.create_metadata'], ['-m', 'tools.metadata']),
+            (repository, ['tools/create_metadata.py'], ['tools/metadata.py']),
+            (repository / 'tools', ['create_metadata.py'], ['metadata.py']),
+            (repository / 'tools', ['-m', 'create_metadata'], ['-m', 'metadata']),
+        ]
+        for cwd, generator, validator in invocations:
+            with self.subTest(cwd=str(cwd), generator=generator):
+                result = subprocess.run(
+                    [sys.executable, *generator, '--root', str(self.root), '--poi', 'trump',
+                     '--output', str(self.output), '--force'], cwd=cwd, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                result = subprocess.run(
+                    [sys.executable, *validator, '--metadata', str(self.output), '--poi', 'trump'],
+                    cwd=cwd, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                summary = json.loads(result.stdout)
+                for split in ('train', 'validation', 'test'):
+                    self.assertEqual(summary[split]['positive_groups'], 1)
+                    self.assertEqual(summary[split]['negative_groups'], 1)
 
     def test_partial_scope_and_unknown_recording_validation(self):
         rows = [dict(clip_id='a', path='a.mp4', kind='generated', split='test',

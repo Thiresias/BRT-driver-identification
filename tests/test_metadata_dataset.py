@@ -12,7 +12,7 @@ if AVAILABLE:
     import numpy as np
     import torch
     from torch.utils.data import DataLoader
-    from LIA_encoder.metadata import load_metadata
+    from tools.metadata import load_metadata
     from LIA_encoder.metadata_dataset import ManifestVideoDataset
 
 

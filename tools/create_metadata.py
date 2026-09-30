@@ -9,7 +9,11 @@ import re
 import tempfile
 from pathlib import Path
 
-from LIA_encoder.metadata import load_metadata
+if __package__:
+    from .metadata import load_metadata
+else:
+    # Direct execution (including from inside tools/) uses the sibling module.
+    from metadata import load_metadata
 
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv', '.webm', '.m4v'}
 SPLITS = {'train': 'train', 'val': 'validation', 'validation': 'validation', 'test': 'test'}

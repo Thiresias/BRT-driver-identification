@@ -80,6 +80,24 @@ From the repository root, for a dataset containing `data/trump/` and optionally
 python -m tools.create_metadata --root data --poi trump --output metadata.csv
 ```
 
+The CSV generator and shared schema/validation code live in `tools/`:
+`create_metadata.py` and `metadata.py`. The video decoder remains in
+`LIA_encoder/metadata_dataset.py` and imports this shared validation module.
+
+You can also run both scripts directly from inside `tools/`:
+
+```bash
+cd tools
+python create_metadata.py --root ../data --poi trump --output ../metadata.csv
+python metadata.py --metadata ../metadata.csv --poi trump
+```
+
+Command-line paths are relative to your current working directory. Video paths
+stored in the CSV are relative to the CSV's directory. From the repository root,
+use `python -m tools.create_metadata` / `python -m tools.metadata`; from inside
+`tools/`, use the script commands above (or `python -m create_metadata` /
+`python -m metadata`). The former `LIA_encoder.metadata` module has moved.
+
 The accepted pre-split layout is:
 
 | Location | Interpreted content | Label for Trump |
@@ -183,7 +201,7 @@ so this patch does not automatically invent those mappings.
 Validate structure, labels, and splits without PyTorch or access to the videos:
 
 ```bash
-python -m LIA_encoder.metadata --metadata examples/metadata.csv --poi trump
+python -m tools.metadata --metadata examples/metadata.csv --poi trump
 ```
 
 When the dataset is instantiated, it additionally checks selected media exists,
