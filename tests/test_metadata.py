@@ -61,10 +61,10 @@ class MetadataTests(unittest.TestCase):
     def test_csv_leading_zeros_and_relative_paths(self):
         path = self.root / "metadata.csv"
         with path.open("w", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=REQUIRED_FIELDS)
+            writer = csv.DictWriter(handle, fieldnames=list(REQUIRED_FIELDS) + ["driver_id", "appearance_id", "driver_video_id"])
             writer.writeheader()
             record = row(driver_id="001", appearance_id="001", driver_video_id="0002")
-            writer.writerow({k: record[k] for k in REQUIRED_FIELDS})
+            writer.writerow({k: record[k] for k in list(REQUIRED_FIELDS) + ["driver_id", "appearance_id", "driver_video_id"]})
         record = load_metadata(path)[0]
         self.assertEqual(record.driver_id, "001")
         self.assertEqual(record.driver_video_id, "0002")

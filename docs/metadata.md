@@ -9,7 +9,9 @@ No media files need to be moved. You can keep existing folders or adopt
 
 Each row describes one **already extracted, cropped video file**. Fields marked
 required must be non-empty. IDs are case-sensitive strings; quote numeric IDs
-in JSON so leading zeros are preserved. Use consistent identities across all
+in JSON so leading zeros are preserved. Missing timestamps can be blank/null or
+a pair of NaN values; internally they become `None`. A single missing endpoint
+is rejected. Use consistent identities across all
 manifests (for example, `trump`, not sometimes `Trump`).
 
 | Field | Required | Meaning |
@@ -17,9 +19,11 @@ manifests (for example, `trump`, not sometimes `Trump`).
 | `clip_id` | Yes | Globally unique asset ID across the supplied manifests. |
 | `path` | Yes | Absolute media path, or path relative to this manifest's directory. |
 | `kind` | Yes | `genuine` or `generated`. |
-| `driver_id` | Yes | Actual person providing the facial behavior. |
-| `appearance_id` | Yes | Visible face identity; equals `driver_id` for genuine video. |
-| `driver_video_id` | Yes | Original recording supplying the motion, shared by its clips and generated derivatives. |
+| `driver_id` | For named drivers | Actual person providing the facial behavior. Blank for unresolved `non_poi` drivers. |
+| `driver_scope` | No | `named` (default), or `non_poi` for an explicitly known negative population. |
+| `poi_id` | For `non_poi` | POI for whom these drivers are known negatives. Prevents reusing `world` with another POI accidentally. |
+| `appearance_id` | No | Visible face identity when known; equals `driver_id` for a named genuine video. |
+| `driver_video_id` | No | Original recording supplying the motion, shared by its clips and generated derivatives. Leave blank when unknown; overlap checks are then incomplete. |
 | `split` | Yes | `train`, `validation`, or `test`. |
 | `start_sec`, `end_sec` | No | Both present or both absent; interval in the original driver recording. |
 | `source_asset_id` | No | Appearance image/video used to generate the fake. |
@@ -32,21 +36,27 @@ and interval `57.38,75.70`. Include the interval in `clip_id` because part numbe
 can repeat. Namespace recording IDs by dataset when the same speaker has
 independent datasets that reuse numbers.
 
-Labels are computed as `int(driver_id == poi)`. For `--poi trump`, a Trump-driven
+For named drivers, labels are computed as `int(driver_id == poi)`. For `--poi trump`, a Trump-driven
 Obama face is positive, while an Obama-driven Trump face is negative. `CDF` is
 a dataset, not an identity: use an actual speaker ID such as `cdf:id0`.
-Do not guess unknown driver identities from appearance. This version requires
-resolved driver identities before an asset can participate in the experiment.
+Do not guess unknown driver identities from appearance. For known negative
+populations, set `driver_scope=non_poi`, leave `driver_id` empty, and set
+`poi_id` to the selected POI. These records receive label 0 only for that POI.
+`world` must exclude the POI: the script cannot verify this assertion from pixels.
 No filename substring, including `drivingCDF`, controls the label.
 
 ## Grouping and split validation
 
-- Genuine clips with the same `(driver_id, driver_video_id)` are grouped into
-  one recording. Each of ten windows chooses one clip from that recording.
+- Genuine clips with the same known driver/recording key are grouped into
+  one recording. For `non_poi` records, the key uses `poi_id` and the explicit
+  recording ID rather than pretending all unknown speakers are one identity. Each of ten windows chooses one clip from that recording.
 - Each generated file is its own evaluation item, even if it shares its driver
   recording with another generated file. Its ten windows share its group ID.
 - The same `(driver_id, driver_video_id)` cannot occur in different splits,
-  including genuine/generated derivatives. Split original recordings first,
+  including genuine/generated derivatives when provenance is known. Missing
+  recording IDs emit a warning; these assets remain separate and cannot be
+  checked for recording overlap. Unresolved `world` identities also cannot
+  automatically be matched to named speakers in other manifests. Split original recordings first,
   then assign all derived assets to that split.
 - Duplicate `clip_id` values and duplicate resolved media paths are errors.
 - Each selected split must contain both POI and non-POI drivers for the current
@@ -60,6 +70,84 @@ Recordings and clips are sorted by metadata IDs, making grouping independent
 of row order. Sampling retains ten deterministic windows, using local random
 generators rather than resetting NumPy's global random state. This patch does
 not introduce epoch-varying augmentation.
+
+## Generate a CSV from your folders
+
+From the repository root, for a dataset containing `data/trump/` and optionally
+`data/world/`, run:
+
+```bash
+python -m tools.create_metadata --root data --poi trump --output metadata.csv
+```
+
+The accepted pre-split layout is:
+
+| Location | Interpreted content | Label for Trump |
+| --- | --- | --- |
+| `data/trump/train/` | Genuine Trump clips | 1 |
+| `data/trump/val/` | Genuine Trump validation clips | 1 |
+| `data/trump/test/` | Generated videos driven by Trump | 1 |
+| `data/world/train/` | Genuine videos of non-Trump people | 0 |
+| `data/world/val/` | Genuine non-Trump validation videos | 0 |
+| `data/world/test/` | Generated videos driven by non-Trump people | 0 |
+
+`val` is written as `validation`; a folder already named `validation` is also
+accepted. Subfolders are scanned recursively. Supported extensions are MP4,
+AVI, MOV, MKV, WEBM, and M4V (case-insensitive). Other files are ignored. The
+script uses folder membership as your assertion of kind and driver membership;
+it does not inspect identities or distinguish genuine/fake content from pixels.
+Do not place genuine evaluation videos in `test` with this generator convention;
+use a manually curated manifest for a different protocol.
+
+For arbitrary input locations, or a POI-only/world-only manifest:
+
+```bash
+python -m tools.create_metadata --poi-dir /datasets/trump --world-dir /datasets/others --poi trump --output metadata.csv
+python -m tools.create_metadata --world-dir /datasets/others --poi trump --output world.csv
+```
+
+A single-population CSV is allowed when generating. Supply the positive and
+negative manifests together for binary training/evaluation. The loader still
+requires both classes in each selected split.
+
+For genuine videos, `151_part_1 [11.40 - 29.76].mp4` produces recording ID
+`trump/151` and timestamps `11.40,29.76`. `151_part_2.mp4` shares that recording
+ID and has empty timestamps (pandas reads these as NaN). With no `_part_N`
+suffix, the filename stem becomes the recording ID. Relative subfolders are
+included in recording IDs, keeping `person_a/001.mp4` separate from
+`person_b/001.mp4` in `world`. Train/val folder names are excluded from recording
+IDs, so accidental cross-split recordings can be detected. Verify this naming
+convention fits your data; the generator cannot detect unrelated recordings
+with indistinguishable filenames. Clip IDs are deterministic hashes of role
+and relative path, including the complete filename and timestamps.
+
+Generated assets retain a blank `driver_video_id` and `appearance_id` rather
+than inferring them from the generated filename. Recognized timestamp suffixes
+are preserved, but must refer to the original driver interval; review them.
+Generation prints a warning that recording-overlap validation is incomplete.
+You can fill in original recording IDs and visible identities afterward to
+improve provenance checks.
+
+If genuine clips are **not already split**, explicitly request a validation
+fraction:
+
+```bash
+python -m tools.create_metadata --root data --poi trump --output metadata.csv --val-fraction 0.2 --seed 42
+```
+
+Place unsplit genuine clips directly inside each population folder (nested
+subfolders are allowed). An optional `test/` subfolder still contains explicitly
+supplied generated videos. At least two original genuine recordings per supplied
+population are required. The script assigns whole recordings deterministically
+to train/validation, separately for POI and world; no video files move. The
+fraction is approximate for small datasets, and at least one recording remains
+in each split. Do not combine `--val-fraction` with existing train/val folders.
+Without this option, videos outside named splits are rejected, not silently
+assigned. For differing layouts, generate separate manifests in separate calls.
+
+Existing CSVs are protected unless you pass `--force`. The output is validated
+before replacement. The generator needs only the Python standard library and
+does not open media; dataset construction later validates the actual videos.
 
 ## Example and migration
 

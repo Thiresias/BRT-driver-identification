@@ -3,6 +3,7 @@
 import csv
 import json
 import math
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,8 +11,7 @@ from typing import Optional, Tuple
 
 
 REQUIRED_FIELDS = (
-    "clip_id", "path", "kind", "driver_id", "appearance_id",
-    "driver_video_id", "split",
+    "clip_id", "path", "kind", "split",
 )
 SPLITS = {"train", "validation", "test"}
 
@@ -29,18 +29,28 @@ class VideoRecord:
     end_sec: Optional[float] = None
     source_asset_id: str = ""
     method: str = ""
+    driver_scope: str = "named"
+    poi_id: str = ""
 
     @property
     def recording_key(self):
-        return self.driver_id, self.driver_video_id
+        if not self.driver_video_id:
+            return None
+        if self.driver_scope == "non_poi":
+            return ("non_poi", self.poi_id, self.driver_video_id)
+        return ("named", self.driver_id, self.driver_video_id)
 
     @property
     def group_key(self):
-        if self.kind == "genuine":
-            return (self.kind, self.driver_id, self.driver_video_id)
+        if self.kind == "genuine" and self.recording_key is not None:
+            return (self.kind,) + self.recording_key
         return (self.kind, self.clip_id)
 
     def label_for(self, poi):
+        if self.driver_scope == "non_poi":
+            if poi != self.poi_id:
+                raise ValueError(f"world records are scoped to POI {self.poi_id!r}, not {poi!r}")
+            return 0
         return int(self.driver_id == poi)
 
 
@@ -67,15 +77,32 @@ def _record(row, base):
     if not isinstance(row, dict):
         raise ValueError("each record must be an object")
     values = {field: _text(row, field, required=True) for field in REQUIRED_FIELDS}
+    values.update({field: _text(row, field) for field in
+                   ("driver_id", "appearance_id", "driver_video_id", "poi_id")})
+    values["driver_scope"] = _text(row, "driver_scope") or "named"
+    if values["driver_scope"] == "named":
+        if not values["driver_id"]:
+            raise ValueError("named records require driver_id")
+        if values["poi_id"]:
+            raise ValueError("poi_id is only used with driver_scope=non_poi")
+    elif values["driver_scope"] == "non_poi":
+        if values["driver_id"] or not values["poi_id"]:
+            raise ValueError("non_poi records require poi_id and an empty driver_id")
+    else:
+        raise ValueError("driver_scope must be named or non_poi")
     if values["kind"] not in {"genuine", "generated"}:
         raise ValueError("kind must be genuine or generated")
     if values["split"] not in SPLITS:
         raise ValueError("split must be train, validation, or test")
-    if values["kind"] == "genuine" and values["driver_id"] != values["appearance_id"]:
+    if (values["kind"] == "genuine" and values["appearance_id"]
+            and values["driver_id"] != values["appearance_id"]):
         raise ValueError("genuine videos must have matching driver_id and appearance_id")
 
     start, end = row.get("start_sec"), row.get("end_sec")
-    if start in (None, "") and end in (None, ""):
+    def missing(value):
+        return value is None or (isinstance(value, str) and value.strip().lower() in {"", "nan"}) or (
+            isinstance(value, float) and math.isnan(value))
+    if missing(start) and missing(end):
         start = end = None
     else:
         try:
@@ -126,7 +153,7 @@ def load_metadata(manifests):
                     raise ValueError(f"duplicate clip_id: {record.clip_id}")
                 if record.path in paths:
                     raise ValueError(f"duplicate media path: {record.path}")
-                old_split = recording_splits.get(record.recording_key)
+                old_split = recording_splits.get(record.recording_key) if record.recording_key else None
                 if old_split is not None and old_split != record.split:
                     raise ValueError(
                         f"driver recording {record.recording_key} appears in both "
@@ -136,10 +163,15 @@ def load_metadata(manifests):
                 raise ValueError(f"{manifest}, record {index}: {exc}") from exc
             ids.add(record.clip_id)
             paths.add(record.path)
-            recording_splits[record.recording_key] = record.split
+            if record.recording_key is not None:
+                recording_splits[record.recording_key] = record.split
             records.append(record)
     if not records:
         raise ValueError("metadata contains no records")
+    unknown = sum(record.recording_key is None for record in records)
+    if unknown:
+        warnings.warn(f"{unknown} record(s) lack driver_video_id; recording-overlap checks "
+                      "are incomplete for these assets", UserWarning, stacklevel=2)
     return records
 
 
@@ -149,6 +181,9 @@ def group_records(records, split, poi):
         raise ValueError(f"unsupported split: {split}")
     if not isinstance(poi, str) or not poi.strip():
         raise ValueError("poi must be a non-empty driver identity")
+    # Check scope even for records outside the selected split.
+    for record in records:
+        record.label_for(poi)
     grouped = defaultdict(list)
     for record in records:
         if record.split == split:

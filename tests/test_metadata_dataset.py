@@ -59,6 +59,22 @@ class DatasetTests(unittest.TestCase):
         second = dataset[0]
         self.assertTrue(torch.equal(first[0], second[0]))
 
+    def test_generated_poi_world_csv_loads_real_videos(self):
+        from tools.create_metadata import create_metadata
+        for record in self.records:
+            role = 'trump' if record.driver_id == 'trump' else 'world'
+            destination = self.root / role / 'test' / 'fake.avi'
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            record.path.rename(destination)
+        manifest = self.root / 'generated.csv'
+        with self.assertWarns(UserWarning):
+            create_metadata(manifest, 'trump', self.root / 'trump', self.root / 'world')
+        with self.assertWarns(UserWarning):
+            records = load_metadata(manifest)
+        dataset = ManifestVideoDataset(records, 'trump', 'test')
+        labels = {int(dataset[index][1][0]) for index in range(len(dataset))}
+        self.assertEqual(labels, {0, 1})
+
     def test_missing_selected_media_fails(self):
         self.records[0].path.unlink()
         with self.assertRaisesRegex(ValueError, "missing media file"):

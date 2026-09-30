@@ -34,6 +34,18 @@ folders. Each record specifies the driver identity, visible identity, original
 driver recording, and split. The label is positive exactly when `driver_id`
 matches `--poi`; folder names such as `drivingCDF` no longer determine labels.
 
+Create a manifest automatically from `<root>/<poi>/{train,val,test}` and optional
+`<root>/world/{train,val,test}` folders:
+
+```bash
+python -m tools.create_metadata --root data --poi trump --output metadata.csv
+```
+
+Train/val folders contain genuine clips; test folders contain generated videos
+with the corresponding drivers. Missing timestamps remain blank (NaN in pandas).
+`world` is explicitly scoped as non-POI, not a single speaker identity. Unknown
+generated-video provenance is reported as incomplete overlap validation.
+
 See [the metadata schema and migration guide](docs/metadata.md) and
 [example CSV](examples/metadata.csv). Existing video paths can be retained.
 Group clips from the same original recording into the same split, including
