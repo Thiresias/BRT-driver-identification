@@ -26,8 +26,9 @@ Repository of the paper: "Who is driving this deepfake? Beyond Deepfake Detectio
 
 Crop videos using the preprocessing script `crop_video.py` from
 [FOMM](https://github.com/AliaksandrSiarohin/first-order-model). The current
-classifier expects 256x256 videos at approximately 25 or 30 FPS, at least eight
-seconds long.
+classifier expects 256x256 videos. Multiscale sampling accepts any finite positive
+FPS and requires at least 40 source frames. It samples 40 frames at a random
+interval of 1–5 frames (limited by clip length).
 
 Describe the videos in CSV or JSON metadata instead of passing positive/negative
 folders. Each record specifies the driver identity, visible identity, original
@@ -60,6 +61,19 @@ Check your metadata before loading videos or model weights:
 ```bash
 python -m tools.metadata --metadata data/trump/metadata.csv --poi trump
 ```
+
+Validate actual video decoding before training:
+
+```bash
+python -m tools.validate_videos --metadata data/trump/metadata.csv --poi trump --output data/trump/metadata.validated.csv
+```
+
+This creates a filtered CSV, a rejection CSV, and a JSON validation summary.
+Train with `--metadata data/trump/metadata.validated.csv`. Use `--full-decode`
+for an additional full sequential decode. Use the same `--sampling` and
+`--max-stride` in validation and training; defaults are `multiscale` and `5`.
+The optional `--sampling fixed` mode uses 40 samples at 5 Hz from an eight-second
+window and requires FPS >= 5. Multiscale duration varies with FPS and stride.
 
 The frozen LIA backbone requires `LIA_encoder/checkpoints/vox.pt`; see the
 [upstream checkpoint download instructions](LIA_encoder/README.md#1-animation-demo).

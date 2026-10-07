@@ -218,8 +218,8 @@ python -m tools.metadata --metadata examples/metadata.csv --poi trump
 ```
 
 When the dataset is instantiated, it additionally checks selected media exists,
-opens correctly, is pre-cropped to 256x256, has approximately 25 or 30 FPS, and
-contains at least eight seconds. Invalid clips produce an explicit error instead
+opens correctly, is pre-cropped to 256x256, has a finite positive FPS, and
+contains enough frames for the selected sampling mode. Invalid clips produce an explicit error instead
 of being silently dropped. Failed/short frame decoding is also reported.
 Timestamps do not substitute for these checks on actual media.
 
@@ -231,6 +231,76 @@ supported, for example `--metadata genuine.csv generated.json`.
 Training saves normalized metadata (including resolved media paths) in
 `output/<name>/metadata.json` and the selected POI/split in `data_config.json`.
 If sharing that snapshot, replace machine-specific absolute paths as needed.
+
+## Validate video decoding before training
+
+From the repository root:
+
+```bash
+python -m tools.validate_videos --metadata data/trump/metadata.csv --poi trump --output data/trump/metadata.validated.csv
+```
+
+Or from inside `tools/`:
+
+```bash
+python validate_videos.py --metadata ../data/trump/metadata.csv --poi trump --output ../data/trump/metadata.validated.csv
+```
+
+The command requires NumPy and OpenCV, but not PyTorch, model weights, or a GPU.
+It produces `metadata.validated.csv`, `metadata.validated.rejected.csv`, and
+`metadata.validated.validation.json`. Original manifests and media are preserved,
+even with `--force` (which replaces only validation outputs). Media paths in the
+filtered CSV are adjusted to its location. Records use the documented schema;
+extra custom columns outside that schema are not retained.
+
+Checks include opening, FPS, dimensions, sufficient frames, and decoding ten
+repeatable windows from every clip. The validator then tests the exact grouped
+windows the dataset will load. Removing a bad clip can change group sampling,
+so it repeats that last step until the final groups pass. No samples are silently
+skipped during training. Unexpected later failures report the clip ID/path and
+frame/window details. Keep video files unchanged after validation.
+
+Add `--full-decode` to additionally read every frame sequentially and compare
+the decoded count to the header. Neither mode guarantees detection of visual
+corruption that the codec conceals. Without full decoding, damage outside the
+sampled windows can remain undetected.
+
+The rejection CSV gives clip ID, path, split, stage, and reason. The JSON report
+records sampling settings and remaining class counts. If filtering removes a
+required class or empties a split, outputs are still written for inspection, but
+`usable` is false and the CLI exits with status 2. Do not train on that output;
+repair or replace the rejected videos first. Supply both POI and world manifests
+when they are stored separately, so class coverage can be checked.
+
+To create metadata and validate in one command:
+
+```bash
+python -m tools.create_metadata --root data --poi trump --validate-videos
+```
+
+### Shared sampling rules
+
+Training and validation call the same planner and decoder in
+`tools/video_sampling.py`. Choose identical options for both commands:
+
+| Mode | Source requirement | Sampling |
+| --- | --- | --- |
+| `--sampling multiscale` (default) | At least 40 frames; any finite positive FPS | Uniform random integer stride from 1 to `min(max_stride, floor((count-1)/39))`; exactly 40 frames. |
+| `--sampling fixed` | At least `ceil(8*fps)` frames; FPS >= 5 | 40 samples at 5 Hz from an eight-second window; fractional FPS supported. |
+
+`--max-stride` defaults to 5. Multiscale uses source span `1 + 39*stride`, and
+samples a starting index from 0 through `count-span`, inclusive. A 40-frame clip
+therefore has stride 1 and start 0. A 196-frame clip supports stride 5. No negative
+seek or invalid random range is used. This corrects the oversized span and
+`random_index-1` seek in the earlier experimental multiscale function.
+
+In multiscale mode, temporal spacing is `stride/fps` seconds. Supporting different
+FPS does **not** normalize the temporal duration across frame rates; this is the
+frame-interval method. The new default differs from the branch's previous fixed
+eight-second sampler. Use the appropriate mode consistently with the model's
+training protocol when evaluating existing checkpoints. Training records the
+mode and maximum stride in `data_config.json`; validation records them in its
+JSON report. Ten-window sampling remains deterministic.
 
 ## Regression tests
 

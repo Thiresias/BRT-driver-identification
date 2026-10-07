@@ -170,6 +170,8 @@ if __name__=="__main__":
     parser.add_argument("--epochs", default=101, type=int, help="Number of epochs for training")
     parser.add_argument("--name", help="Name of the training")
     parser.add_argument("--train_mode", default='supervised', help="supervised or self-supervised")
+    parser.add_argument("--sampling", choices=["multiscale", "fixed"], default="multiscale")
+    parser.add_argument("--max-stride", type=int, default=5, help="Maximum multiscale frame interval")
     args = parser.parse_args()
     training = args.training
     ckpt = args.ckpt
@@ -190,8 +192,8 @@ if __name__=="__main__":
     print("Load metadata")
     try:
         records = load_metadata(args.metadata)
-        video_Dataset_test = ManifestVideoDataset(records, args.poi, split=eval_split)
-        video_Dataset = ManifestVideoDataset(records, args.poi, split='train') if training else None
+        video_Dataset_test = ManifestVideoDataset(records, args.poi, split=eval_split, sampling=args.sampling, max_stride=args.max_stride)
+        video_Dataset = ManifestVideoDataset(records, args.poi, split='train', sampling=args.sampling, max_stride=args.max_stride) if training else None
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
     batch_size = 4
@@ -238,7 +240,8 @@ if __name__=="__main__":
         with open(os.path.join(output_folder, 'metadata.json'), 'w') as handle:
             json.dump([dict(record.__dict__, path=str(record.path)) for record in records], handle, indent=2)
         with open(os.path.join(output_folder, 'data_config.json'), 'w') as handle:
-            json.dump({'poi': args.poi, 'eval_split': eval_split, 'metadata': args.metadata}, handle, indent=2)
+            json.dump({'poi': args.poi, 'eval_split': eval_split, 'metadata': args.metadata,
+                       'sampling': args.sampling, 'max_stride': args.max_stride}, handle, indent=2)
 
         for epoch in pbar1:
             if ckpt:

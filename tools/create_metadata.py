@@ -169,7 +169,13 @@ def main():
     parser.add_argument('--val-fraction', type=float, help='Explicitly split unsplit genuine recordings')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--force', action='store_true', help='Replace an existing CSV after validation')
+    parser.add_argument('--validate-videos', action='store_true', help='Also produce a filtered manifest and rejection report')
+    parser.add_argument('--full-decode', action='store_true', help='With --validate-videos, also decode every frame')
+    parser.add_argument('--sampling', choices=['multiscale', 'fixed'], default='multiscale')
+    parser.add_argument('--max-stride', type=int, default=5)
     args = parser.parse_args()
+    if args.full_decode and not args.validate_videos:
+        parser.error('--full-decode requires --validate-videos')
     if args.root:
         if args.poi_dir or args.world_dir:
             parser.error('--root cannot be combined with --poi-dir/--world-dir')
@@ -190,6 +196,21 @@ def main():
     if any(row['driver_scope'] == 'non_poi' for row in rows):
         print(f'world is an explicit assertion that all its drivers are not {args.poi}; identities remain unknown.')
     print('Genuine recording IDs follow the documented filename convention and relative subfolders; review them before training.')
+    if args.validate_videos:
+        if __package__:
+            from .validate_videos import validate_videos
+        else:
+            from validate_videos import validate_videos
+        filtered = args.output.with_name(args.output.stem + '.validated.csv')
+        try:
+            summary = validate_videos([args.output], filtered, args.poi, args.sampling,
+                                      args.max_stride, args.full_decode, args.force)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        print(f"Validated {summary['accepted_clips']} clips; rejected {summary['rejected_clips']}. See {filtered}")
+        if not summary['usable']:
+            parser.exit(2, 'Filtered data is not usable: see the validation report.\n')
+
 
 
 if __name__ == '__main__':
