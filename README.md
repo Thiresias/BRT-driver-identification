@@ -20,7 +20,17 @@ Repository of the paper: "Who is driving this deepfake? Beyond Deepfake Detectio
 ## Installation
 
 ### Python environment
-- **TO DO**: Add requirements.txt
+To setup your Python environment, we recommend using Conda:
+```bash
+# Create your environment (works fine with python 3.10)
+conda create -n brt python=3.10
+
+# Install PyTorch first (check your CUDA version on https://pytorch.org/get-started/previous-versions/)
+pip install torch torchvision
+
+# Install the remaining dependencies
+pip install -r requirements.txt
+```
 
 ### Dataset metadata and preprocessing
 
