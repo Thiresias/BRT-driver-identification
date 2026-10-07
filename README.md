@@ -112,12 +112,13 @@ The old `--data_pos` and `--data_neg` options are replaced by `--metadata` and
 <!-- omit in toc -->
 ## Citation
 ```
-@inproceedings{
-libourel2025who,
-title={Who is driving this deepfake: Beyond Deepfake Detection With Driver Identification},
-author={Alexandre Libourel and Jean-Luc Dugelay},
-booktitle={International Joint Conference on Neural Networks},
-year={2025}
+@inproceedings{libourel2025driving,
+  title={Who is driving this deepfake? Beyond Deepfake Detection with Driver Identification},
+  author={Libourel, Alexandre and Dugelay, Jean-Luc},
+  booktitle={2025 International Joint Conference on Neural Networks (IJCNN)},
+  pages={1--8},
+  year={2025},
+  organization={IEEE}
 }
 ```
 <!-- omit in toc -->
