@@ -52,11 +52,11 @@ Create a manifest automatically from `<root>/<poi>/{train,val,test}` and optiona
 `<root>/world/{train,val,test}` folders:
 
 ```bash
-python -m tools.create_metadata --root data --poi trump
+python tools/create_metadata.py --root data --poi trump
 ```
 
-The CSV is saved to `data/trump/metadata.csv` by default. Clip IDs include the population prefix and five hexadecimal characters, such as
-`trump:1d54a` or `world:1d54a`, with collisions resolved within the generated CSV.
+The CSV is saved to `data/<poi>/metadata.csv` by default. Clip IDs include the population prefix and five hexadecimal characters, such as
+`<poi>:1d54a` or `world:1d54a`, with collisions resolved within the generated CSV.
 
 Train/val folders contain genuine clips; test folders contain generated videos
 with the corresponding drivers. Missing timestamps remain blank (NaN in pandas).
@@ -72,21 +72,18 @@ evaluation uses `test` and requires no training videos.
 Check your metadata before loading videos or model weights:
 
 ```bash
-python -m tools.metadata --metadata data/trump/metadata.csv --poi trump
+python tools/metadata.py --metadata data/<poi>/metadata.csv --poi trump
 ```
 
 Validate actual video decoding before training:
 
 ```bash
-python -m tools.validate_videos --metadata data/trump/metadata.csv --poi trump --output data/trump/metadata.validated.csv
+python tools/validate_videos.py --metadata data/trump/metadata.csv --poi trump --output data/<poi>/metadata/validated.csv
 ```
 
 This creates a filtered CSV, a rejection CSV, and a JSON validation summary.
-Train with `--metadata data/trump/metadata.validated.csv`. Use `--full-decode`
-for an additional full sequential decode. Use the same `--sampling` and
-`--max-stride` in validation and training; defaults are `multiscale` and `5`.
-The optional `--sampling fixed` mode uses 40 samples at 5 Hz from an eight-second
-window and requires FPS >= 5. Multiscale duration varies with FPS and stride.
+Train with `--metadata data/<poi>/metadata.validated.csv`. Use `--full-decode`
+for an additional full sequential decode.
 
 The frozen LIA backbone requires `LIA_encoder/checkpoints/vox.pt`; see the
 [upstream checkpoint download instructions](LIA_encoder/README.md#1-animation-demo).
