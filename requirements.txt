@@ -15,3 +15,5 @@ torchvision
 tqdm
 transformers
 opencv-python
+Pillow
+tensorboard

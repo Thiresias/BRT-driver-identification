@@ -19,6 +19,12 @@ Repository of the paper: "Who is driving this deepfake? Beyond Deepfake Detectio
 <!-- omit in toc -->
 ## Installation
 
+### Docker
+
+For a containerized setup, see [the Docker guide](docs/docker.md) for build, GPU,
+metadata, training and evaluation commands. Datasets and checkpoints are mounted
+at runtime.
+
 ### Python environment
 To setup your Python environment, we recommend using Conda:
 ```bash

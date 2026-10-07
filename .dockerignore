@@ -1,0 +1,20 @@
+# Allow only runtime Python source and dependency/build configuration.
+# Data, checkpoints, outputs, credentials and Git history stay outside the image.
+**
+!Dockerfile
+!requirements.txt
+!docker/
+!docker/constraints.txt
+!head_mvt_classification_LIA.py
+!LIA_encoder/
+!LIA_encoder/**/
+!LIA_encoder/**/*.py
+!tools/
+!tools/**/
+!tools/**/*.py
+!utils/
+!utils/**/
+!utils/**/*.py
+!tests/
+!tests/**/
+!tests/**/*.py
