@@ -8,10 +8,10 @@ Repository of the paper: "Who is driving this deepfake? Beyond Deepfake Detectio
 ## Table of Contents
 - [Installation](#installation)
   - [Libraries](#python-environment)
-  - [Dataset formatting](#dataset-formatting)
+  - [Dataset metadata](#dataset-metadata-and-preprocessing)
 - [Scripts](#scripts)
   - [Training](#training)
-  - [Testing](#testing)
+  - [Testing](#driver-identification-testing)
 - [Citation](#citation)
 - [Contributing](#contributing)
 
@@ -22,82 +22,92 @@ Repository of the paper: "Who is driving this deepfake? Beyond Deepfake Detectio
 ### Python environment
 - **TO DO**: Add requirements.txt
 
-### Data preprocessin
-To train your own model, process your data with the follosing steps:
-  1. Dataset
-After gathering videos from a specific Person Of Interest (POI), you can split them in two subsets: Training subset (80%) and testing subset (20%)
-The counter examples used for training are the real videos (compression rate of c23) from [FaceForensics++](https://github.com/ondyari/FaceForensics). For the testing, we use the real videos of the celbrities from [Celeb-DF-v2](https://github.com/yuezunli/celeb-deepfakeforensics).
+### Dataset metadata and preprocessing
 
-  3. Preprocessing
-Before formatting all the videos, you need to crop the videos using the preprocessing script `crop_video.py` from [FOMM](https://github.com/AliaksandrSiarohin/first-order-model).
+Crop videos using the preprocessing script `crop_video.py` from
+[FOMM](https://github.com/AliaksandrSiarohin/first-order-model). The current
+classifier expects 256x256 videos. Multiscale sampling accepts any finite positive
+FPS and requires at least 40 source frames. It samples 40 frames at a random
+interval of 1–5 frames (limited by clip length).
 
-  4. Formatting
-The videos must be split in the following format:
-```
-data
-|-- POI
-    |-- train
-        |-- vid01.mp4
-        |-- vid02.mp4
-        |-- ...
-    |-- test
-        |-- vid81.mp4
-        |-- vid82.mp4
-        |-- ...
-|-- other
-    |-- train # List of FF++ real videos (c23)
-        |-- 000.mp4
-        |-- 001.mp4
-        |-- ...
-    |-- test # List of the CDFv2 real videos (celeb-real)
-        |-- id0_0000_id1_0000.mp4
-        |-- id0_0001_id2_0000.mp4
-        |-- ...
+Describe the videos in CSV or JSON metadata instead of passing positive/negative
+folders. Each record specifies the driver identity, visible identity, original
+driver recording, and split. The label is positive exactly when `driver_id`
+matches `--poi`; folder names such as `drivingCDF` no longer determine labels.
 
+Create a manifest automatically from `<root>/<poi>/{train,val,test}` and optional
+`<root>/world/{train,val,test}` folders:
+
+```bash
+python -m tools.create_metadata --root data --poi trump
 ```
 
-This will allow you to train your network at learning the facial behavior of your POI
+The CSV is saved to `data/trump/metadata.csv` by default. Clip IDs include the population prefix and five hexadecimal characters, such as
+`trump:1d54a` or `world:1d54a`, with collisions resolved within the generated CSV.
 
-Next, for the driver identification step, gather a collection of deepfakes you want to test. The role of BRT, is to determine which deepfakes were generated using a video of your POI as a driving video.
-The current script is made for performance evaluation, so you are supposed to know which deepfake were generated using a video of your POI.
-Therefore, drop your videos in the following format:
+Train/val folders contain genuine clips; test folders contain generated videos
+with the corresponding drivers. Missing timestamps remain blank (NaN in pandas).
+`world` is explicitly scoped as non-POI, not a single speaker identity. Unknown
+generated-video provenance is reported as incomplete overlap validation.
 
+See [the metadata schema and migration guide](docs/metadata.md) and
+[example CSV](examples/metadata.csv). Existing video paths can be retained.
+Group clips from the same original recording into the same split, including
+any generated derivatives. Training uses `train` and `validation`; standalone
+evaluation uses `test` and requires no training videos.
+
+Check your metadata before loading videos or model weights:
+
+```bash
+python -m tools.metadata --metadata data/trump/metadata.csv --poi trump
 ```
-data
-|-- POI
-|-- other
-|-- deepfakes-from-POI
-    |-- train
-        |-- dummy_video.mp4 # In order to avoid error, put a random video here. (TO BE FIXED IN A LATER VERSION)
-    |-- test
-        |-- dfpoi01_POI.mp4
-        |-- dfpoi02_POI.mp4
-        |-- ...
-|-- deepfake-from-other
-    |-- train
-        |-- dummy_video.mp4 # Can be the same as the one from data/deepfakes-from-POI/train
-    |-- test
-        |-- df01_otherA.mp4
-        |-- df02_otherB.mp4
-        |-- ...
+
+Validate actual video decoding before training:
+
+```bash
+python -m tools.validate_videos --metadata data/trump/metadata.csv --poi trump --output data/trump/metadata.validated.csv
 ```
+
+This creates a filtered CSV, a rejection CSV, and a JSON validation summary.
+Train with `--metadata data/trump/metadata.validated.csv`. Use `--full-decode`
+for an additional full sequential decode. Use the same `--sampling` and
+`--max-stride` in validation and training; defaults are `multiscale` and `5`.
+The optional `--sampling fixed` mode uses 40 samples at 5 Hz from an eight-second
+window and requires FPS >= 5. Multiscale duration varies with FPS and stride.
+
+The frozen LIA backbone requires `LIA_encoder/checkpoints/vox.pt`; see the
+[upstream checkpoint download instructions](LIA_encoder/README.md#1-animation-demo).
+This is distinct from the trained BRT classifier checkpoint supplied to `--ckpt`.
 
 <!-- omit in toc -->
 ## Scripts
 
+Run commands from the repository root. Training currently uses one CUDA GPU.
+Use your actual POI identity and manifest paths in the following commands.
+
 ### Training
-The training works for a single GPU, parallel training have not been tested.
-To train the model simply run:
-```
+
+```bash
 export CUDA_VISIBLE_DEVICES=0
-python head_mvt_classification_LIA.py --data_pos data/POI --data_neg data/other --epochs 101 --name POI --training
+python head_mvt_classification_LIA.py --metadata data/trump/metadata.csv --poi trump --epochs 101 --name trump --training
 ```
 
+You can supply several manifests: `--metadata genuine.csv generated.json`.
+They are validated together, including checks for original driver recordings
+appearing in different splits. Metadata paths are resolved relative to each
+manifest, not the current working directory.
+
 ### Driver identification (Testing)
-```
+
+```bash
 export CUDA_VISIBLE_DEVICES=0
-python head_mvt_classification_LIA.py --data_pos data/deepfakes-from-POI --data_neg data/deepfakes-from-other --epochs 101 --name POI
+python head_mvt_classification_LIA.py --metadata data/trump/metadata.csv --poi trump --name trump-test --ckpt output/trump/ckpt/latest.pth
 ```
+
+`--ckpt` is required for testing. `--eval_split validation` selects validation
+instead of the default test split. During training the default is validation.
+The old `--data_pos` and `--data_neg` options are replaced by `--metadata` and
+`--poi`. No dummy videos are needed.
 
 <!-- omit in toc -->
 ## Citation
