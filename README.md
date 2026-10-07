@@ -106,8 +106,6 @@ python head_mvt_classification_LIA.py --metadata data/trump/metadata.csv --poi t
 
 `--ckpt` is required for testing. `--eval_split validation` selects validation
 instead of the default test split. During training the default is validation.
-The old `--data_pos` and `--data_neg` options are replaced by `--metadata` and
-`--poi`. No dummy videos are needed.
 
 <!-- omit in toc -->
 ## Citation
