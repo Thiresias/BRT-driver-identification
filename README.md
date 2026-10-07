@@ -25,6 +25,9 @@ To setup your Python environment, we recommend using Conda:
 # Create your environment (works fine with python 3.10)
 conda create -n brt python=3.10
 
+# Activate your environment
+conda activate brt
+
 # Install PyTorch first (check your CUDA version on https://pytorch.org/get-started/previous-versions/)
 pip install torch torchvision
 
