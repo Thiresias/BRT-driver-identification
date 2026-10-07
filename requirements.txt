@@ -1,0 +1,17 @@
+ffmpeg-python
+imageio
+imageio-ffmpeg
+matplotlib
+numpy
+pandas
+python-dateutil
+pytz
+PyYAML
+scikit-image
+scikit-learn
+scipy
+torch
+torchvision
+tqdm
+transformers
+opencv-python
